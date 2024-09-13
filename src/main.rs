@@ -1,28 +1,40 @@
+use dom::DOM;
+use macroquad as mqd;
 use macroquad::prelude::*;
+use rendering::render_dom;
 
+mod dom;
 mod html;
 mod parser;
+mod rendering;
+mod styling;
 
-// #[macroquad::main("Kale")]
-fn main() -> anyhow::Result<()> {
+#[macroquad::main("Kale")]
+async fn main() {
+    let html_elements = parser::parse(include_str!("../project.html")).unwrap();
+    let dom = DOM::construct_dom(html_elements);
 
-    let html_elements = parser::parse(include_str!("../project.html"))?;
-    // let htmlElements = parser::parse("<html>abc</html>")?;
+    // mqd::window::set_fullscreen(true);
+    let font = load_ttf_font("tnr.ttf").await.unwrap();
 
-    for element in html_elements {
-        println!("{}", element.to_string());
+    let draw_text = |text: &str, x: f32, y: f32, font_size: u16, color: Color| {
+        macroquad::text::draw_text_ex(
+            text,
+            x,
+            y,
+            TextParams {
+                font: Some(&font),
+                font_size: font_size,
+                font_scale: 1.0,
+                font_scale_aspect: 1.0,
+                rotation: 0.0,
+                color: color,
+            },
+        )
+    };
+
+    loop {
+        render_dom(&dom, &draw_text);
+        next_frame().await
     }
-
-    // loop {
-    //     clear_background(WHITE);
-
-    //     draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-    //     draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-    //     draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
-    //     draw_text("HELLO", 20.0, 20.0, 20.0, DARKGRAY);
-
-    //     next_frame().await
-    // }
-
-    Ok(())
 }

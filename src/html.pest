@@ -1,0 +1,83 @@
+// HTML 1.0 Grammar
+
+// Whitespace skipping
+
+WHITESPACE = _{ " " | "\n" | "\t" }
+
+element = {
+    selfClosingTag
+  | openCloseTag
+  | text
+}
+
+openCloseTag = {
+    openTag ~ content ~ closeTag
+}
+
+openTag = {
+    "<" ~ tagName ~ attributes ~ ">"
+}
+
+closeTag = {
+    "</" ~ tagName ~ ">"
+}
+
+selfClosingTag = {
+    "<" ~ tagName ~ attributes ~ "/>"
+}
+
+content = { element* }
+
+text = {
+    (!"<" ~ ANY)+
+}
+
+tagName = {
+    "header"
+  | "title"
+  | "body"
+  | "html"
+  | "head"
+  | "h1"
+  | "nextid"
+  | "p"
+  | "a"
+    | "img"
+    | "dl"
+    | "dt"
+    | "dd"
+}
+
+attributes = {
+    attribute*
+}
+
+attribute = {
+    attributeName ~ "=" ~ attributeValue
+}
+
+attributeName = {
+    ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT | "-")*
+}
+
+attributeValue = {
+    "\"" ~ attributeValueChar* ~ "\""
+  | "'" ~ attributeValueChar* ~ "'"
+}
+
+attributeValueChar = {
+    !"'" ~ !"\"" ~ ANY
+}
+
+ASCII_ALPHA = {
+    'a'..'z'
+  | 'A'..'Z'
+}
+
+ASCII_DIGIT = {
+    '0'..'9'
+}
+
+html = {
+    element+
+}
