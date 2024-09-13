@@ -1,35 +1,56 @@
-
-
-
 #[derive(Debug)]
-pub(crate) struct HTMLElement {
-    pub tag: String,
-    pub id: String,
-    pub inner_text: String,
-    pub children: Vec<HTMLElement>,
+pub(crate) enum HTMLElement {
+    Element {
+        tag: String,
+        attributes: Vec<(String, String)>,
+        children: Vec<HTMLElement>,
+    },
+    Text(String),
 }
 
 impl HTMLElement {
-    pub(crate) fn new(tag: String, id: String, inner_text: String, children: Vec<HTMLElement>) -> Self {
-        Self {
+    pub(crate) fn element(
+        tag: String,
+        attributes: Vec<(String, String)>,
+        children: Vec<HTMLElement>,
+    ) -> Self {
+        Self::Element {
             tag,
-            id,
-            inner_text,
+            attributes,
             children,
         }
+    }
+
+    pub(crate) fn text_node(text: String) -> Self {
+        Self::Text(text)
     }
 }
 
 impl ToString for HTMLElement {
     fn to_string(&self) -> String {
-        let mut s = format!("<{} id=\"{}\">{}</{}>", self.tag, self.id, self.inner_text, self.tag);
-        for child in &self.children {
-            s.push_str(&child.to_string());
+        match self {
+            HTMLElement::Element {
+                tag,
+                attributes,
+                children,
+            } => {
+                let mut attributes_str = String::new();
+                for (name, value) in attributes {
+                    attributes_str.push_str(&format!(" {}=\"{}\"", name, value));
+                }
+
+                let mut children_str = String::new();
+                for child in children {
+                    children_str.push_str(&child.to_string());
+                }
+
+                if children.is_empty() {
+                    format!("<{}{}/>", tag, attributes_str)
+                } else {
+                    format!("<{}{}>{}</{}>", tag, attributes_str, children_str, tag)
+                }
+            }
+            HTMLElement::Text(s) => s.clone(),
         }
-        s
     }
 }
-
-
-
-
