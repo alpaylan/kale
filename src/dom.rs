@@ -1,7 +1,6 @@
-
 use crate::{
     html::HTMLElement,
-    styling::{Color, Display, Font, FontStyle, FontWeight, Margin, Style, Unit},
+    styling::{Color, Display, Font, FontStyle, FontWeight, Margin, Style, TextDecoration, TextDecorationLine, TextDecorationStyle, Unit},
 };
 
 pub(crate) struct Paragraph {
@@ -21,6 +20,7 @@ pub(crate) struct Heading {
 pub(crate) struct Anchor {
     pub href: String,
     pub text: String,
+    pub clicked: bool,
 }
 
 pub(crate) struct DescriptionList {
@@ -74,7 +74,7 @@ impl From<HTMLElement> for DOMElement {
                                             }
                                         })
                                         .unwrap();
-                                    spans.push(Span::Anchor(Anchor { href, text }));
+                                    spans.push(Span::Anchor(Anchor { href, text, clicked: false }));
                                 }
                                 _ => todo!(),
                             },
@@ -96,6 +96,25 @@ impl From<HTMLElement> for DOMElement {
                         .unwrap();
                     DOMElement::Heading(Heading { level: 1, text })
                 }
+                "a" => {
+                    let href = attributes
+                        .iter()
+                        .find(|(name, _)| name == "href")
+                        .unwrap()
+                        .1
+                        .clone();
+                    let text = children
+                        .iter()
+                        .find_map(|child| {
+                            if let HTMLElement::Text(text) = child {
+                                Some(text.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap();
+                    DOMElement::Anchor(Anchor { href, text, clicked: false })
+                }
                 _ => todo!(),
             },
             HTMLElement::Text(_) => todo!(),
@@ -111,6 +130,7 @@ impl DOMElement {
                 margin: Margin::new(Unit::Em(1.0), Unit::Em(0.0), Unit::Em(1.0), Unit::Em(0.0)),
                 font: Font::default(),
                 color: Color::default(),
+                text_decoration: TextDecoration::default(),
             },
             DOMElement::Heading(heading) => match heading.level {
                 1 => Style {
@@ -128,11 +148,28 @@ impl DOMElement {
                         family: "Times New Roman".to_string(),
                     },
                     color: Color::default(),
+                    text_decoration: TextDecoration::default(),
                 },
                 _ => todo!(),
             },
-            DOMElement::Anchor(_) => todo!(),
-            DOMElement::DescriptionList(_) => todo!()
+            DOMElement::Anchor(a) => {
+                Style {
+                    display: Display::Inline,
+                    margin: Margin::new(Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0)),
+                    font: Font::default(),
+                    color: Color::default(),
+                    text_decoration: TextDecoration {
+                        color: if a.clicked {
+                            Color::new(0, 0, 238) // Purple
+                        } else {
+                            Color::new(0, 0, 255) // Blue
+                        },
+                        line: TextDecorationLine::Underline,
+                        style: TextDecorationStyle::Solid,
+                    },
+                }
+            }
+            DOMElement::DescriptionList(_) => todo!(),
         }
     }
 }
