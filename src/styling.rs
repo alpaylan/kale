@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Style {
     pub display: Display,
     pub margin: Margin,
@@ -8,13 +8,19 @@ pub(crate) struct Style {
 }
 
 impl Style {
-    pub(crate) fn new(display: Display, margin: Margin, font: Font, color: Color, text_decoration: TextDecoration) -> Self {
+    pub(crate) fn new(
+        display: Display,
+        margin: Margin,
+        font: Font,
+        color: Color,
+        text_decoration: TextDecoration,
+    ) -> Self {
         Self {
             display,
             margin,
             font,
             color,
-            text_decoration
+            text_decoration,
         }
     }
 }
@@ -27,6 +33,44 @@ impl Default for Style {
             font: Font::default(),
             color: Color::default(),
             text_decoration: TextDecoration::default(),
+        }
+    }
+}
+
+impl Style {
+    pub(crate) fn from_tag(tag: &str) -> Self {
+        match tag {
+            "p" => Self {
+                display: Display::Block,
+                margin: Margin::new(Unit::Em(1.0), Unit::Em(0.0), Unit::Em(1.0), Unit::Em(0.0)),
+                font: Font::default(),
+                color: Color::default(),
+                text_decoration: TextDecoration::default(),
+            },
+            "h1" => Self {
+                display: Display::Block,
+                margin: Margin::new(Unit::Em(0.67), Unit::Em(0.0), Unit::Em(0.67), Unit::Em(0.0)),
+                font: Font::new(
+                    Unit::Em(2.0),
+                    "Times New Roman".to_string(),
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                ),
+                color: Color::default(),
+                text_decoration: TextDecoration::default(),
+            },
+            "a" => Self {
+                display: Display::Inline,
+                margin: Margin::new(Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0)),
+                font: Font::default(),
+                color: Color::new(0, 0, 238),
+                text_decoration: TextDecoration {
+                    color: Color::new(0, 0, 238),
+                    line: TextDecorationLine::Underline,
+                    style: TextDecorationStyle::Solid,
+                },
+            },
+            _ => Self::default(),
         }
     }
 }
@@ -84,7 +128,7 @@ impl Unit {
     pub(crate) fn to_pixels(&self) -> f32 {
         match self {
             Self::Px(px) => *px,
-            Self::Em(m) | Self::Rem(m) => 16.0 * m,
+            Self::Em(m) | Self::Rem(m) => 32.0 * m,
         }
     }
 }
@@ -101,7 +145,7 @@ impl From<Unit> for u16 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Font {
     pub size: Unit,
     pub family: String,
@@ -131,7 +175,7 @@ impl Default for Font {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum FontWeight {
     Normal,
     Bold,
@@ -143,7 +187,7 @@ impl Default for FontWeight {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum FontStyle {
     Normal,
     Italic,
@@ -186,7 +230,7 @@ impl From<Color> for macroquad::color::Color {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct TextDecoration {
     pub color: Color,
     pub line: TextDecorationLine,
@@ -203,7 +247,7 @@ impl Default for TextDecoration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum TextDecorationLine {
     None,
     Underline,
@@ -217,7 +261,7 @@ impl Default for TextDecorationLine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum TextDecorationStyle {
     Solid,
     Double,

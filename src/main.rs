@@ -34,7 +34,7 @@ async fn main() {
     };
 
     loop {
-        render_dom(&dom, &draw_text);
+        render_dom(&dom, &draw_text, &font);
         next_frame().await
     }
 }
