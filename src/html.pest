@@ -14,6 +14,7 @@ openCloseTag = {
     openTag ~ content ~ closeTag
 }
 
+
 openTag = {
     "<" ~ tagName ~ attributes ~ ">"
 }
@@ -34,18 +35,31 @@ text = {
 
 tagName = {
     "header"
+  | "HEADER"
   | "title"
+  | "TITLE"
   | "body"
+  | "BODY"
   | "html"
+  | "HTML"
   | "head"
+  | "HEAD"
   | "h1"
+  | "H1"
   | "nextid"
+  | "NEXTID"
   | "p"
+  | "P"
   | "a"
-    | "img"
-    | "dl"
-    | "dt"
-    | "dd"
+  | "A"
+  | "img"
+  | "IMG"
+  | "dl"
+  | "DL"
+  | "dt"
+  | "DT"
+  | "dd"
+  | "DD"
 }
 
 attributes = {
@@ -63,6 +77,8 @@ attributeName = {
 attributeValue = {
     "\"" ~ attributeValueChar* ~ "\""
   | "'" ~ attributeValueChar* ~ "'"
+  | ASCII_DIGIT+
+  | ASCII_ALPHA ~ ASCII_DIGIT+
 }
 
 attributeValueChar = {

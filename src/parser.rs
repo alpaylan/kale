@@ -98,12 +98,12 @@ pub fn parse_open_close_tag(pair: Pair<Rule>) -> anyhow::Result<HTMLElement> {
     let mut pair = pair.into_inner();
     let opening_tag = parse_opening_tag(pair.next().unwrap())?;
     let content = parse_content(pair.next().unwrap())?;
-    let closing_tag = parse_closing_tag(pair.next().unwrap())?;
+    // let closing_tag = parse_closing_tag(pair.next().unwrap())?;
 
-    anyhow::ensure!(
-        opening_tag.tag == closing_tag,
-        "open tag and close tag doesn't match"
-    );
+    // anyhow::ensure!(
+    //     opening_tag.tag == closing_tag,
+    //     "open tag and close tag doesn't match"
+    // );
 
     Ok(HTMLElement::element(
         opening_tag.tag,

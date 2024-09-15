@@ -37,44 +37,6 @@ impl Default for Style {
     }
 }
 
-impl Style {
-    pub(crate) fn from_tag(tag: &str) -> Self {
-        match tag {
-            "p" => Self {
-                display: Display::Block,
-                margin: Margin::new(Unit::Em(1.0), Unit::Em(0.0), Unit::Em(1.0), Unit::Em(0.0)),
-                font: Font::default(),
-                color: Color::default(),
-                text_decoration: TextDecoration::default(),
-            },
-            "h1" => Self {
-                display: Display::Block,
-                margin: Margin::new(Unit::Em(0.67), Unit::Em(0.0), Unit::Em(0.67), Unit::Em(0.0)),
-                font: Font::new(
-                    Unit::Em(2.0),
-                    "Times New Roman".to_string(),
-                    FontWeight::Bold,
-                    FontStyle::Normal,
-                ),
-                color: Color::default(),
-                text_decoration: TextDecoration::default(),
-            },
-            "a" => Self {
-                display: Display::Inline,
-                margin: Margin::new(Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0), Unit::Em(0.0)),
-                font: Font::default(),
-                color: Color::new(0, 0, 238),
-                text_decoration: TextDecoration {
-                    color: Color::new(0, 0, 238),
-                    line: TextDecorationLine::Underline,
-                    style: TextDecorationStyle::Solid,
-                },
-            },
-            _ => Self::default(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Display {
     Block,
@@ -137,13 +99,13 @@ impl Unit {
 #[derive(Debug, Clone)]
 pub(crate) struct Font {
     pub size: Unit,
-    pub family: String,
+    pub family: FontFamily,
     pub weight: FontWeight,
     pub style: FontStyle,
 }
 
 impl Font {
-    pub(crate) fn new(size: Unit, family: String, weight: FontWeight, style: FontStyle) -> Self {
+    pub(crate) fn new(size: Unit, family: FontFamily, weight: FontWeight, style: FontStyle) -> Self {
         Self {
             size,
             family,
@@ -157,15 +119,28 @@ impl Default for Font {
     fn default() -> Self {
         Self {
             size: Unit::Px(16.0),
-            family: "Times New Roman".to_string(),
-            weight: FontWeight::Normal,
-            style: FontStyle::Normal,
+            family: FontFamily::default(),
+            weight: FontWeight::default(),
+            style: FontStyle::default(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum FontWeight {
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum FontFamily {
+    TimesNewRoman,
+    Arial,
+}
+
+impl Default for FontFamily {
+    fn default() -> Self {
+        Self::TimesNewRoman
+    }
+    
+}
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum FontWeight {
     Normal,
     Bold,
 }
@@ -176,8 +151,8 @@ impl Default for FontWeight {
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) enum FontStyle {
+#[derive(Debug, Copy, Clone)]
+pub enum FontStyle {
     Normal,
     Italic,
 }

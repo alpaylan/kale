@@ -24,6 +24,13 @@ impl HTMLElement {
     pub(crate) fn text_node(text: String) -> Self {
         Self::Text(text)
     }
+
+    pub(crate) fn is_header(&self) -> bool {
+        match self {
+            HTMLElement::Element { tag, .. } => tag == "header" || tag == "HEADER",
+            _ => false,
+        }
+    }
 }
 
 impl ToString for HTMLElement {

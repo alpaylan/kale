@@ -1,19 +1,24 @@
 use crate::{
     html::HTMLElement,
     styling::{
-        Color, Display, Font, FontStyle, FontWeight, Margin, Style, TextDecoration,
+        Color, Display, Font, FontFamily, FontStyle, FontWeight, Margin, Style, TextDecoration,
         TextDecorationLine, TextDecorationStyle, Unit,
     },
 };
 
+use uuid::Uuid;
+
 #[derive(Debug, Clone)]
 pub(crate) enum DOMElement {
     View {
+        id: String,
+        tag: String,
         style: Style,
         children: Vec<DOMElement>,
         actions: Vec<DOMAction>,
     },
     Text {
+        id: String,
         style: Style,
         text: String,
         actions: Vec<DOMAction>,
@@ -33,38 +38,139 @@ impl DOMElement {
             Self::Text { actions, .. } => actions,
         }
     }
+
+    pub(crate) fn id(&self) -> &str {
+        match self {
+            Self::View { id, .. } => id,
+            Self::Text { id, .. } => id,
+        }
+    }
 }
 
 impl DOMElement {
-    pub(crate) fn unchecked_text(&self) -> String {
+    pub(crate) fn set_style(&mut self, style: Style) {
         match self {
-            DOMElement::View {
-                style,
-                children,
-                actions,
-            } => {
-                panic!("Never call with a view")
-            }
-            DOMElement::Text { text, .. } => text.clone(),
+            Self::View { style: s, .. } => *s = style,
+            Self::Text { style: s, .. } => *s = style,
         }
     }
 
-    pub(crate) fn to_text(&self) -> Self {
+    pub(crate) fn get(&self, id: &str) -> Option<&DOMElement> {
+        if self.id() == id {
+            return Some(self);
+        }
         match self {
-            DOMElement::View {
-                style,
-                children,
-                actions,
-            } => {
-                assert!(children.len() == 1);
-
-                DOMElement::Text {
-                    style: style.clone(),
-                    text: children[0].unchecked_text(),
-                    actions: actions.clone(),
+            Self::View { children, .. } => {
+                for child in children {
+                    if let Some(e) = child.get(id) {
+                        return Some(e);
+                    }
                 }
             }
-            DOMElement::Text { .. } => self.clone(),
+            Self::Text { id: self_id, .. } => {
+                if self_id == id {
+                    return Some(self);
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_mut(&mut self, id: &str) -> Option<&mut DOMElement> {
+        if self.id() == id {
+            return Some(self);
+        }
+        match self {
+            Self::View { children, .. } => {
+                for child in children {
+                    if let Some(e) = child.get_mut(id) {
+                        return Some(e);
+                    }
+                }
+            }
+            Self::Text { id: self_id, .. } => {
+                if self_id == id {
+                    return Some(self);
+                }
+            }
+        }
+        None
+    }
+
+    pub(crate) fn set_clicked(&mut self, id: &str) {
+        match self {
+            Self::View { children, .. } => {
+                for child in children {
+                    child.set_clicked(id);
+                }
+            }
+            Self::Text { id: self_id, .. } => {
+                if self_id == id {
+                    self.set_style(Style {
+                        text_decoration: TextDecoration {
+                            color: Color::new(0, 0, 0),
+                            line: TextDecorationLine::Underline,
+                            style: TextDecorationStyle::Solid,
+                        },
+                        ..self.style().clone()
+                    });
+                }
+            }
+        }
+    }
+
+    pub(crate) fn set_hovered(&mut self, id: &str) {
+        match self {
+            Self::View {
+                children,
+                id: id_,
+                style,
+                ..
+            } => {
+                if id == id_ {
+                    let style = style.clone();
+                    self.set_style(Style {
+                        color: Color::new(255, 0, 0),
+                        ..style
+                    });
+                } else {
+                    for child in children {
+                        child.set_hovered(id);
+                    }
+                }
+            }
+            Self::Text { id: self_id, .. } => {
+                if self_id == id {
+                    self.set_style(Style {
+                        color: Color::new(255, 0, 0),
+                        ..self.style().clone()
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl ToString for DOMElement {
+    fn to_string(&self) -> String {
+        match self {
+            DOMElement::View {
+                tag,
+                style,
+                children,
+                id,
+                ..
+            } => {
+                let mut result = String::new();
+                let attributes = format!("id=\"{}\"", id);
+                result.push_str(&format!("<{} {}>", tag, attributes));
+                for child in children {
+                    result.push_str(&child.to_string());
+                }
+                result.push_str(&format!("</{}>", tag));
+                result
+            }
+            DOMElement::Text { text, .. } => text.clone(),
         }
     }
 }
@@ -77,10 +183,10 @@ pub(crate) enum DOMAction {
 impl DOMAction {
     pub(crate) fn from_html_element(tag: &str, attributes: &Vec<(String, String)>) -> Vec<Self> {
         match tag {
-            "a" => {
+            "a" | "A" => {
                 let mut actions = vec![];
                 for (key, value) in attributes {
-                    if key == "href" {
+                    if key == "href" || key == "HREF" {
                         actions.push(DOMAction::ClickToRedirect(value.clone()));
                     }
                 }
@@ -99,7 +205,7 @@ struct MaybeStyle {
     pub text_decoration: Option<TextDecoration>,
 }
 
-struct InheritableStyle {
+pub(crate) struct InheritableStyle {
     pub font: Font,
     pub color: Color,
     pub text_decoration: TextDecoration,
@@ -118,7 +224,7 @@ impl Default for InheritableStyle {
 impl MaybeStyle {
     pub(crate) fn from_tag(tag: &str) -> Self {
         match tag {
-            "p" => Self {
+            "p" | "P" => Self {
                 display: Some(Display::Block),
                 margin: Some(Margin::new(
                     Unit::Em(1.0),
@@ -130,7 +236,7 @@ impl MaybeStyle {
                 color: None,
                 text_decoration: None,
             },
-            "h1" => Self {
+            "h1" | "H1" => Self {
                 display: Some(Display::Block),
                 margin: Some(Margin::new(
                     Unit::Em(0.67),
@@ -140,14 +246,14 @@ impl MaybeStyle {
                 )),
                 font: Some(Font::new(
                     Unit::Em(2.0),
-                    "Times New Roman".to_string(),
+                    FontFamily::TimesNewRoman,
                     FontWeight::Bold,
                     FontStyle::Normal,
                 )),
                 color: None,
                 text_decoration: None,
             },
-            "a" => Self {
+            "a" | "A" => Self {
                 display: None,
                 margin: None,
                 font: None,
@@ -157,6 +263,54 @@ impl MaybeStyle {
                     line: TextDecorationLine::Underline,
                     style: TextDecorationStyle::Solid,
                 }),
+            },
+            "dl" | "DL" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(1.0),
+                    Unit::Em(0.0),
+                    Unit::Em(1.0),
+                    Unit::Em(0.0),
+                )),
+                font: None,
+                color: None,
+                text_decoration: None,
+            },
+            "dt" | "DT" => Self {
+                display: Some(Display::Block),
+                margin: None,
+                font: None,
+                color: None,
+                text_decoration: None,
+            },
+            "dd" | "DD" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(0.0),
+                    Unit::Em(0.0),
+                    Unit::Em(0.0),
+                    Unit::Px(40.0),
+                )),
+                font: None,
+                color: None,
+                text_decoration: None,
+            },
+            "body" | "BODY" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Px(8.0),
+                    Unit::Px(8.0),
+                    Unit::Px(8.0),
+                    Unit::Px(8.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(1.0),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Normal,
+                    FontStyle::Normal,
+                )),
+                color: Some(Color::new(0, 0, 0)),
+                text_decoration: None,
             },
             _ => Self {
                 display: None,
@@ -204,6 +358,8 @@ impl HTMLElement {
                     .collect();
                 // Return DOMElement
                 DOMElement::View {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    tag,
                     style,
                     children,
                     actions,
@@ -220,6 +376,7 @@ impl HTMLElement {
 
                 let actions = vec![];
                 DOMElement::Text {
+                    id: uuid::Uuid::new_v4().to_string(),
                     style,
                     text,
                     actions,
@@ -238,8 +395,42 @@ impl DOM {
     pub(crate) fn construct_dom(html_elements: Vec<HTMLElement>) -> Self {
         let elements = html_elements
             .into_iter()
+            .filter(|element| !element.is_header())
             .map(|element| element.into_dom_element(&InheritableStyle::default()))
             .collect();
         Self { elements }
+    }
+}
+
+impl DOM {
+    pub(crate) fn get(&self, id: &str) -> Option<&DOMElement> {
+        for element in &self.elements {
+            if let Some(e) = element.get(id) {
+                return Some(e);
+            }
+        }
+        None
+    }
+
+    pub(crate) fn set_clicked(&mut self, id: &str) {
+        for element in &mut self.elements {
+            element.set_clicked(id);
+        }
+    }
+
+    pub(crate) fn set_hovered(&mut self, id: &str) {
+        for element in &mut self.elements {
+            element.set_hovered(id);
+        }
+    }
+}
+
+impl ToString for DOM {
+    fn to_string(&self) -> String {
+        let mut result = String::new();
+        for element in &self.elements {
+            result.push_str(&element.to_string());
+        }
+        result
     }
 }
