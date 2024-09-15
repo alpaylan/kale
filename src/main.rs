@@ -13,7 +13,6 @@ mod styling;
 async fn main() {
     let html_elements = parser::parse(include_str!("../project.html")).unwrap();
     let dom = DOM::construct_dom(html_elements);
-
     // mqd::window::set_fullscreen(true);
     let font = load_ttf_font("tnr.ttf").await.unwrap();
 

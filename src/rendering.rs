@@ -1,13 +1,12 @@
 use macroquad::{
-    color::Color,
-    math::{quat, vec2},
     shapes::draw_line,
-    text::{self, measure_text, Font, TextDimensions},
+    text::{measure_text, Font, TextDimensions},
 };
+use pest::Position;
 
 use crate::{
     dom::{DOMElement, DOM},
-    styling::{Display, Style, TextDecoration, TextDecorationLine},
+    styling::{Display, TextDecorationLine},
 };
 
 pub fn render_dom(
@@ -17,142 +16,114 @@ pub fn render_dom(
 ) {
     macroquad::window::clear_background(macroquad::color::WHITE);
 
-    let mut bbox = BoundingBox {
+    let bbox = BoundingBox {
         x: 0.0,
         y: 0.0,
         width: macroquad::window::screen_width(),
         height: macroquad::window::screen_height(),
     };
 
+    let mut position = Point { x: 0.0, y: 0.0 };
+
     for element in dom.elements.iter() {
-        let result_box = render_dom_element(element, bbox, draw_text, font);
-        bbox.y += result_box.height;
-        bbox.height -= result_box.height;
+        position = render_dom_element(element, bbox, position, draw_text, font);
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-struct BoundingBox {
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
+pub(crate) struct BoundingBox {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Point {
+    pub(crate) fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
 }
 
 pub(crate) fn render_dom_element(
     element: &DOMElement,
     bbox: BoundingBox,
+    position: Point,
     draw_text: &dyn Fn(&str, f32, f32, u16, macroquad::color::Color) -> TextDimensions,
     font: &Font,
-) -> BoundingBox {
+) -> Point {
+    let mut cursor = position;
+
     match element {
         DOMElement::View {
             style, children, ..
         } => match style.display {
             Display::Block => {
-                let mut bbox = bbox;
+                let line_height = style.font.size.to_pixels(16.0);
+                cursor.y += line_height;
+                cursor.x = bbox.x;
                 for child in children {
-                    let result_box = render_dom_element(child, bbox, draw_text, font);
-                    bbox.y += result_box.height;
+                    cursor = render_dom_element(child, bbox, cursor, draw_text, font);
                 }
-
-                bbox
+                
+                Point::new(position.x, cursor.y + line_height)
             }
             Display::Inline => {
-                let text_children: Vec<DOMElement> =
-                    children.into_iter().map(|child| child.to_text()).collect();
-
-                let mut x = 0.0;
-                let line_height = style.font.size.to_pixels();
-                let mut y = line_height;
-                let space_width = measure_text(
-                    " ",
-                    Some(font),
-                    style.font.size.to_pixels().round() as u16,
-                    1.0,
-                );
-
-                for text_child in text_children {
-                    // Tokenization
-                    let text_child = text_child.unchecked_text();
-                    let tokens = text_child.split_whitespace();
-
-                    for token in tokens {
-                        let dimensions =
-                            measure_text(token, Some(font), line_height.round() as u16, 1.0);
-
-                        if x + dimensions.width > bbox.width {
-                            y += line_height;
-                            x = 0.0;
-                        }
-
-                        draw_text(
-                            &token,
-                            bbox.x + x,
-                            bbox.y + y,
-                            line_height.round() as u16,
-                            style.color.into(),
-                        );
-
-                        if let TextDecorationLine::Underline = style.text_decoration.line {
-                            draw_line(
-                                bbox.x + x,
-                                bbox.y + y,
-                                bbox.x + x + dimensions.width,
-                                bbox.y + y,
-                                1.0,
-                                style.text_decoration.color.into(),
-                            );
-                        }
-
-                        x += dimensions.width + space_width.width;
-                    }
+                let mut cursor = position;
+                for child in children {
+                    cursor = render_dom_element(child, bbox, cursor, draw_text, font);
                 }
-                BoundingBox {
-                    x: bbox.x,
-                    y: bbox.y,
-                    width: bbox.width,
-                    height: y + line_height,
-                }
+
+                Point::new(cursor.x, cursor.y)
             }
         },
         DOMElement::Text { text, style, .. } => {
             // Tokenization
             let tokens = text.split_whitespace();
-            let mut x = 0.0;
-            let line_height = style.font.size.to_pixels();
-            let mut y = line_height;
+            let line_height = style.font.size.to_pixels(16.0);
             let space_width = measure_text(
                 " ",
                 Some(font),
-                style.font.size.to_pixels().round() as u16,
+                style.font.size.to_pixels(16.0).round() as u16,
                 1.0,
             );
 
             for token in tokens {
                 let dimensions = measure_text(token, Some(font), line_height.round() as u16, 1.0);
 
-                if x + dimensions.width > bbox.width {
-                    y += line_height;
-                    x = 0.0;
+                if cursor.x + dimensions.width > bbox.width {
+                    cursor.y += line_height;
+                    cursor.x = bbox.x;
                 }
 
                 draw_text(
                     &token,
-                    bbox.x + x,
-                    bbox.y + y,
+                    cursor.x,
+                    cursor.y + line_height,
                     line_height.round() as u16,
                     style.color.into(),
                 );
+                
+                if let TextDecorationLine::Underline = style.text_decoration.line {
+                    draw_line(
+                        cursor.x,
+                        cursor.y + line_height,
+                        cursor.x + dimensions.width,
+                        cursor.y + line_height,
+                        1.0,
+                        style.text_decoration.color.into(),
+                    );
+                }
 
-                x += dimensions.width + space_width.width;
+                cursor.x += dimensions.width + space_width.width;
             }
-            BoundingBox {
-                x: bbox.x,
-                y: bbox.y,
-                width: bbox.width,
-                height: y + line_height,
-            }
+
+            Point::new(cursor.x, cursor.y)
         }
     }
 }

@@ -83,7 +83,7 @@ pub(crate) enum Display {
 
 impl Default for Display {
     fn default() -> Self {
-        Self::Block
+        Self::Inline
     }
 }
 
@@ -125,23 +125,12 @@ pub(crate) enum Unit {
 }
 
 impl Unit {
-    pub(crate) fn to_pixels(&self) -> f32 {
+    pub(crate) fn to_pixels(&self, scale: f32) -> f32 {
         match self {
             Self::Px(px) => *px,
-            Self::Em(m) | Self::Rem(m) => 32.0 * m,
+            Self::Em(m) => scale * m,
+            Self::Rem(m) => 16.0 * m,
         }
-    }
-}
-
-impl From<Unit> for f32 {
-    fn from(unit: Unit) -> Self {
-        unit.to_pixels()
-    }
-}
-
-impl From<Unit> for u16 {
-    fn from(unit: Unit) -> Self {
-        unit.to_pixels().round() as u16
     }
 }
 

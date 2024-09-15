@@ -9,7 +9,6 @@ pub struct HTMLParser;
 
 pub fn parse(html: &str) -> anyhow::Result<Vec<HTMLElement>> {
     let pairs = HTMLParser::parse(Rule::html, html).context("Failed to parse HTML")?;
-    println!("{:#?}", pairs);
     let pairs = pairs
         .into_iter()
         .next()
