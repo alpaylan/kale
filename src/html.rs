@@ -27,7 +27,9 @@ impl HTMLElement {
 
     pub(crate) fn is_header(&self) -> bool {
         match self {
-            HTMLElement::Element { tag, .. } => tag == "header" || tag == "HEADER",
+            HTMLElement::Element { tag, .. } => {
+                tag == "head" || tag == "HEAD" || tag == "title" || tag == "TITLE"
+            }
             _ => false,
         }
     }

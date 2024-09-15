@@ -4,6 +4,8 @@
 
 WHITESPACE = _{ " " | "\n" | "\t" }
 
+COMMENT = _{ "<!--" ~ (!"-->" ~ ANY)* ~ "-->" }
+
 element = {
     selfClosingTag
   | openCloseTag
@@ -14,7 +16,6 @@ openCloseTag = {
     openTag ~ content ~ closeTag
 }
 
-
 openTag = {
     "<" ~ tagName ~ attributes ~ ">"
 }
@@ -24,7 +25,19 @@ closeTag = {
 }
 
 selfClosingTag = {
-    "<" ~ tagName ~ attributes ~ "/>"
+    br
+  | meta
+  | "<" ~ tagName ~ attributes ~ "/>"
+}
+
+br = {
+    "<br>"
+  | "<BR>"
+}
+
+meta = {
+    "<meta" ~ attributes ~ ">"
+  | "<META " ~ attributes ~ ">"
 }
 
 content = { element* }
@@ -34,10 +47,15 @@ text = {
 }
 
 tagName = {
-    "header"
+  
+  | "blockquote"
+  | "BLOCKQUOTE"
+  | "header"
   | "HEADER"
   | "title"
   | "TITLE"
+  | "meta"
+  | "META"
   | "body"
   | "BODY"
   | "html"
@@ -46,8 +64,30 @@ tagName = {
   | "HEAD"
   | "h1"
   | "H1"
+  | "h2"
+  | "H2"
+  | "h3"
+  | "H3"
+  | "h4"
+  | "H4"
+  | "h5"
+  | "H5"
+  | "h6"
+  | "H6"
+  | "ul"
+  | "UL"
+  | "ol"
+  | "OL"
+  | "li"
+  | "LI"
+  | "strong"
+  | "STRONG"
+  | "b"
+  | "b"
   | "nextid"
   | "NEXTID"
+  | "aside"
+  | "ASIDE"
   | "p"
   | "P"
   | "a"
@@ -60,6 +100,8 @@ tagName = {
   | "DT"
   | "dd"
   | "DD"
+  | "script"
+  | "SCRIPT"
 }
 
 attributes = {
@@ -79,6 +121,7 @@ attributeValue = {
   | "'" ~ attributeValueChar* ~ "'"
   | ASCII_DIGIT+
   | ASCII_ALPHA ~ ASCII_DIGIT+
+  | ASCII_ALPHA+
 }
 
 attributeValueChar = {
@@ -94,6 +137,10 @@ ASCII_DIGIT = {
     '0'..'9'
 }
 
+doctype = {
+    "<!DOCTYPE" ~ attributeValue+ ~ ">"
+}
+
 html = {
-    element+
+    doctype? ~ element+
 }

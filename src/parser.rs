@@ -21,6 +21,7 @@ pub fn parse(html: &str) -> anyhow::Result<Vec<HTMLElement>> {
             Rule::element => {
                 elements.push(parse_element(pair).context("Failed to parse element")?);
             }
+            Rule::doctype => {}
             e => anyhow::bail!("Unexpected rule: {:?}", e),
         }
     }
@@ -114,6 +115,15 @@ pub fn parse_open_close_tag(pair: Pair<Rule>) -> anyhow::Result<HTMLElement> {
 
 pub fn parse_self_closing_tag(pair: Pair<Rule>) -> anyhow::Result<HTMLElement> {
     let mut pair = pair.into_inner();
+
+    if let Rule::br = pair.peek().unwrap().as_rule() {
+        return Ok(HTMLElement::element("br".to_string(), vec![], vec![]));
+    }
+
+    if let Rule::meta = pair.peek().unwrap().as_rule() {
+        return Ok(HTMLElement::element("meta".to_string(), vec![], vec![]));
+    }
+
     let tag = pair.next().unwrap().as_str().to_string();
     let mut attributes = Vec::new();
 

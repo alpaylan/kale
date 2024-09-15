@@ -45,6 +45,13 @@ impl DOMElement {
             Self::Text { id, .. } => id,
         }
     }
+
+    pub(crate) fn tag(&self) -> &str {
+        match self {
+            Self::View { tag, .. } => tag,
+            Self::Text { .. } => "text",
+        }
+    }
 }
 
 impl DOMElement {
@@ -99,19 +106,28 @@ impl DOMElement {
 
     pub(crate) fn set_clicked(&mut self, id: &str) {
         match self {
-            Self::View { children, .. } => {
-                for child in children {
-                    child.set_clicked(id);
+            Self::View {
+                children,
+                id: id_,
+                style,
+                ..
+            } => {
+                if id == id_ {
+                    let style = style.clone();
+                    self.set_style(Style {
+                        color: Color::new(255, 0, 0),
+                        ..style
+                    });
+                } else {
+                    for child in children {
+                        child.set_hovered(id);
+                    }
                 }
             }
             Self::Text { id: self_id, .. } => {
                 if self_id == id {
                     self.set_style(Style {
-                        text_decoration: TextDecoration {
-                            color: Color::new(0, 0, 0),
-                            line: TextDecorationLine::Underline,
-                            style: TextDecorationStyle::Solid,
-                        },
+                        color: Color::new(255, 0, 0),
                         ..self.style().clone()
                     });
                 }
@@ -253,6 +269,91 @@ impl MaybeStyle {
                 color: None,
                 text_decoration: None,
             },
+            "h2" | "H2" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(0.83),
+                    Unit::Em(0.0),
+                    Unit::Em(0.83),
+                    Unit::Em(0.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(1.5),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                )),
+                color: None,
+                text_decoration: None,
+            },
+            "h3" | "H3" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(1.0),
+                    Unit::Em(0.0),
+                    Unit::Em(1.0),
+                    Unit::Em(0.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(1.17),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                )),
+                color: None,
+                text_decoration: None,
+            },
+            "h4" | "H4" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(1.33),
+                    Unit::Em(0.0),
+                    Unit::Em(1.33),
+                    Unit::Em(0.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(1.0),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                )),
+                color: None,
+                text_decoration: None,
+            },
+            "h5" | "H5" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(1.67),
+                    Unit::Em(0.0),
+                    Unit::Em(1.67),
+                    Unit::Em(0.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(0.83),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                )),
+                color: None,
+                text_decoration: None,
+            },
+            "h6" | "H6" => Self {
+                display: Some(Display::Block),
+                margin: Some(Margin::new(
+                    Unit::Em(2.33),
+                    Unit::Em(0.0),
+                    Unit::Em(2.33),
+                    Unit::Em(0.0),
+                )),
+                font: Some(Font::new(
+                    Unit::Em(0.67),
+                    FontFamily::TimesNewRoman,
+                    FontWeight::Bold,
+                    FontStyle::Normal,
+                )),
+                color: None,
+                text_decoration: None,
+            },
             "a" | "A" => Self {
                 display: None,
                 margin: None,
@@ -324,7 +425,11 @@ impl MaybeStyle {
 }
 
 impl HTMLElement {
-    pub(crate) fn into_dom_element(self, inherited_style: &InheritableStyle) -> DOMElement {
+    pub(crate) fn into_dom_element(
+        self,
+        inherited_style: &InheritableStyle,
+        mut inherited_actions: Vec<DOMAction>,
+    ) -> DOMElement {
         match self {
             HTMLElement::Element {
                 tag,
@@ -351,10 +456,14 @@ impl HTMLElement {
                 };
                 // Get actions
                 let actions = DOMAction::from_html_element(&tag, &attributes);
+                inherited_actions.extend(actions);
                 // Recurse on children
                 let children = children
                     .into_iter()
-                    .map(|child| child.into_dom_element(&inherited_style))
+                    .filter(|child| !child.is_header())
+                    .map(|child| {
+                        child.into_dom_element(&inherited_style, inherited_actions.clone())
+                    })
                     .collect();
                 // Return DOMElement
                 DOMElement::View {
@@ -362,7 +471,7 @@ impl HTMLElement {
                     tag,
                     style,
                     children,
-                    actions,
+                    actions: inherited_actions,
                 }
             }
             HTMLElement::Text(text) => {
@@ -373,13 +482,11 @@ impl HTMLElement {
                     color: inherited_style.color,
                     text_decoration: inherited_style.text_decoration.clone(),
                 };
-
-                let actions = vec![];
                 DOMElement::Text {
                     id: uuid::Uuid::new_v4().to_string(),
                     style,
                     text,
-                    actions,
+                    actions: inherited_actions,
                 }
             }
         }
@@ -396,7 +503,7 @@ impl DOM {
         let elements = html_elements
             .into_iter()
             .filter(|element| !element.is_header())
-            .map(|element| element.into_dom_element(&InheritableStyle::default()))
+            .map(|element| element.into_dom_element(&InheritableStyle::default(), vec![]))
             .collect();
         Self { elements }
     }

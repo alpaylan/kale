@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use macroquad::{
-    shapes::draw_line,
+    math::Vec2,
+    shapes::{draw_circle, draw_line, draw_rectangle_lines},
     text::{measure_text, Font, TextDimensions},
 };
 use pest::Position;
@@ -14,6 +15,7 @@ use crate::{
 pub fn render_dom(
     dom: &DOM,
     draw_text: &dyn Fn(&str, f32, f32, u16, macroquad::color::Color, &Font) -> TextDimensions,
+    draw_line: &dyn Fn(Vec2, Vec2, macroquad::color::Color),
     fonts: &HashMap<(FontFamily, FontWeight), Font>,
 ) -> Vec<(BoundingBox, Vec<DOMAction>, String)> {
     macroquad::window::clear_background(macroquad::color::WHITE);
@@ -35,6 +37,7 @@ pub fn render_dom(
             bbox,
             position,
             draw_text,
+            draw_line,
             fonts,
             &mut element_boxes,
         );
@@ -83,6 +86,7 @@ pub(crate) fn render_dom_element(
     bbox: BoundingBox,
     position: Point,
     draw_text: &dyn Fn(&str, f32, f32, u16, macroquad::color::Color, &Font) -> TextDimensions,
+    draw_line: &dyn Fn(Vec2, Vec2, macroquad::color::Color),
     fonts: &HashMap<(FontFamily, FontWeight), Font>,
     element_boxes: &mut Vec<(BoundingBox, Vec<DOMAction>, String)>,
 ) -> Point {
@@ -94,6 +98,7 @@ pub(crate) fn render_dom_element(
             children,
             actions,
             id,
+            tag,
             ..
         } => match style.display {
             Display::Block => {
@@ -101,12 +106,29 @@ pub(crate) fn render_dom_element(
                 let margin_top = style.margin.top.to_pixels(line_height);
                 let margin_left = style.margin.left.to_pixels(line_height);
 
-                cursor.y += line_height + margin_top;
+                cursor.y += margin_top;
                 bbox.x += margin_left;
                 cursor.x = bbox.x;
+
+                let mut last_child = None;
                 for child in children {
-                    cursor =
-                        render_dom_element(child, bbox, cursor, draw_text, fonts, element_boxes);
+                    if let Some(last_child) = last_child {
+                        if last_child == Display::Inline && child.style().display == Display::Block
+                        {
+                            cursor.y += line_height;
+                            cursor.x = bbox.x;
+                        }
+                    }
+                    cursor = render_dom_element(
+                        child,
+                        bbox,
+                        cursor,
+                        draw_text,
+                        draw_line,
+                        fonts,
+                        element_boxes,
+                    );
+                    last_child = Some(child.style().display);
                 }
                 let margin_bottom = style.margin.bottom.to_pixels(line_height);
                 let margin_right = style.margin.right.to_pixels(line_height);
@@ -122,13 +144,20 @@ pub(crate) fn render_dom_element(
                     id.clone(),
                 ));
 
-                Point::new(position.x + margin_right, cursor.y + margin_bottom)
+                Point::new(position.x, cursor.y + line_height + margin_bottom)
             }
             Display::Inline => {
                 let mut cursor = position;
                 for child in children {
-                    cursor =
-                        render_dom_element(child, bbox, cursor, draw_text, fonts, element_boxes);
+                    cursor = render_dom_element(
+                        child,
+                        bbox,
+                        cursor,
+                        draw_text,
+                        draw_line,
+                        fonts,
+                        element_boxes,
+                    );
                 }
 
                 element_boxes.push((
@@ -149,9 +178,10 @@ pub(crate) fn render_dom_element(
             text,
             style,
             actions,
-            id
+            id,
         } => {
             // Tokenization
+            let mut local_element_boxes = vec![];
             let tokens = text.split_whitespace();
             let line_height = style.font.size.to_pixels(16.0);
             let space_width = measure_text(
@@ -160,6 +190,7 @@ pub(crate) fn render_dom_element(
                 style.font.size.to_pixels(16.0).round() as u16,
                 1.0,
             );
+            let mut line_beginning = cursor.x;
 
             for token in tokens {
                 let dimensions = measure_text(
@@ -170,17 +201,35 @@ pub(crate) fn render_dom_element(
                 );
 
                 if cursor.x + dimensions.width > bbox.width {
+                    local_element_boxes.push((
+                        BoundingBox {
+                            x: line_beginning,
+                            y: cursor.y,
+                            width: cursor.x - line_beginning,
+                            height: line_height,
+                        },
+                        actions.clone(),
+                        id.clone(),
+                    ));
+
+                    // draw_rectangle_lines(
+                    //     line_beginning,
+                    //     cursor.y,
+                    //     cursor.x - line_beginning,
+                    //     line_height,
+                    //     3.0,
+                    //     macroquad::color::BLACK,
+                    // );
+
                     cursor.y += line_height;
                     cursor.x = bbox.x;
+                    line_beginning = cursor.x;
                 }
 
                 if let TextDecorationLine::Underline = style.text_decoration.line {
                     draw_line(
-                        cursor.x,
-                        cursor.y,
-                        cursor.x + dimensions.width,
-                        cursor.y,
-                        1.0,
+                        Vec2::new(cursor.x, cursor.y + line_height),
+                        Vec2::new(cursor.x + dimensions.width, cursor.y + line_height),
                         style.text_decoration.color.into(),
                     );
                 }
@@ -188,7 +237,7 @@ pub(crate) fn render_dom_element(
                 draw_text(
                     &token,
                     cursor.x,
-                    cursor.y,
+                    cursor.y + line_height,
                     line_height.round() as u16,
                     style.color.into(),
                     fonts.get(&(style.font.family, style.font.weight)).unwrap(),
@@ -197,16 +246,30 @@ pub(crate) fn render_dom_element(
                 cursor.x += dimensions.width + space_width.width;
             }
 
-            element_boxes.push((
-                BoundingBox {
-                    x: position.x,
-                    y: position.y,
-                    width: cursor.x - position.x,
-                    height: cursor.y - position.y,
-                },
-                actions.clone(),
-                id.clone(),
-            ));
+            let last_element = local_element_boxes.last();
+
+            if last_element.is_none() || last_element.unwrap().0.y == cursor.y - line_height {
+                local_element_boxes.push((
+                    BoundingBox {
+                        x: line_beginning,
+                        y: cursor.y,
+                        width: cursor.x - line_beginning,
+                        height: line_height,
+                    },
+                    actions.clone(),
+                    id.clone(),
+                ));
+                // draw_rectangle_lines(
+                //     line_beginning,
+                //     cursor.y,
+                //     cursor.x - line_beginning,
+                //     line_height,
+                //     3.0,
+                //     macroquad::color::BLUE,
+                // );
+            }
+
+            element_boxes.extend(local_element_boxes);
 
             Point::new(cursor.x, cursor.y)
         }

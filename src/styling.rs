@@ -37,7 +37,7 @@ impl Default for Style {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Display {
     Block,
     Inline,
